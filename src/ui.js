@@ -26,6 +26,29 @@ const clock = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minut
  */
 const deskCheck = (p) => S.check(p, S.deskActor(), 'authorize');
 
+/**
+ * Ask whether the partner origin is publishing to us.
+ *
+ * It registers on its own schedule inside its frame, so give it a few seconds
+ * before saying it is absent. Not longer: an indefinite "checking" reads as a
+ * hung screen, and four seconds is well past the point where a reachable
+ * bureau would have answered. Re-checked whenever someone opens the Authority
+ * view, so a bureau that comes back is not reported as down forever.
+ */
+let checking = false;
+async function checkBureau() {
+  if (checking || !('modelContext' in document)) return;
+  checking = true;
+  try {
+    for (let i = 0; i < 8; i++) {
+      if (await bureauReachable()) { bureau = true; render(); return; }
+      await new Promise((r) => setTimeout(r, 500));
+    }
+    bureau = false;
+    render();
+  } finally { checking = false; }
+}
+
 let view = 'queue';
 let filter = 'all';
 let litPayment = null;
@@ -57,6 +80,7 @@ $('views').addEventListener('click', (e) => {
   }
   for (const v of ['queue', 'authority', 'trail']) $(`view-${v}`).classList.toggle('is-hidden', v !== view);
   $(`view-${view}`).focus({ preventScroll: true });
+  if (view === 'authority' && bureau !== true) checkBureau();
   render();
 });
 
@@ -558,18 +582,7 @@ if (bus) {
     };
     await showCount();
     document.modelContext.addEventListener('toolchange', showCount);
-
-    // The partner origin registers on its own schedule inside its frame, so
-    // poll briefly rather than reporting "not available" before it has had a
-    // chance to answer.
-    (async () => {
-      for (let i = 0; i < 20; i++) {
-        if (await bureauReachable()) { bureau = true; render(); return; }
-        await new Promise((r) => setTimeout(r, 500));
-      }
-      bureau = false;
-      render();
-    })();
+    checkBureau();
   }
   render();
 })();
