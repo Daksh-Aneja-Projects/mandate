@@ -1,0 +1,13 @@
+{
+  "name": "mandate",
+  "version": "0.1.0",
+  "description": "Scoped, supervised, revocable authority for agents acting on a payment operations desk. Built on WebMCP.",
+  "type": "module",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "test": "node --test",
+    "dev": "node --run serve",
+    "serve": "node tools/serve.js"
+  }
+}
