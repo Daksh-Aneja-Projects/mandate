@@ -486,6 +486,28 @@ function render() {
 
 S.subscribe(render);
 
+/**
+ * Cue the director window, if one is open. Recording a live agent is hard
+ * enough without also having to click a teleprompter, so the desk tells it what
+ * just happened and it follows along.
+ */
+const bus = (() => { try { return new BroadcastChannel('mandate-demo'); } catch { return null; } })();
+if (bus) {
+  let lastTrace = null, hadMandate = false;
+  S.subscribe(() => {
+    const top = S.state.agentTrace[0];
+    if (top && top.at !== lastTrace && top.outcome !== 'running') {
+      lastTrace = top.at;
+      bus.postMessage({ tool: top.tool, outcome: top.outcome });
+    }
+    const has = !!S.state.mandate;
+    if (has !== hadMandate) {
+      hadMandate = has;
+      bus.postMessage({ event: has ? 'mandate-granted' : 'mandate-revoked' });
+    }
+  });
+}
+
 // -------------------------------------------------------- WebMCP up ----
 
 (async () => {
