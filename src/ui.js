@@ -12,7 +12,11 @@ import { icon, iconEl } from './icons.js';
 import { syncTools, scheduleSync, toolNames } from './tools.js';
 
 const $ = (id) => document.getElementById(id);
-const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+/** Agent-supplied strings reach this screen. Single quotes are escaped too, so
+ *  the escaping stays correct if any interpolation ever lands in a
+ *  single-quoted attribute. */
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+  ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const clock = (d) => new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
 /**
@@ -45,8 +49,13 @@ $('whoSelect').addEventListener('change', (e) => {
 $('views').addEventListener('click', (e) => {
   const b = e.target.closest('.view-tab'); if (!b) return;
   view = b.dataset.view;
-  for (const t of $('views').children) t.classList.toggle('is-on', t === b);
+  for (const t of $('views').children) {
+    t.classList.toggle('is-on', t === b);
+    t.setAttribute('aria-selected', String(t === b));
+    t.tabIndex = t === b ? 0 : -1;
+  }
   for (const v of ['queue', 'authority', 'trail']) $(`view-${v}`).classList.toggle('is-hidden', v !== view);
+  $(`view-${view}`).focus({ preventScroll: true });
   render();
 });
 
@@ -521,12 +530,18 @@ if (bus) {
   } else {
     chip.classList.add('is-live');
     label.textContent = 'Agent interface live';
-    count.textContent = `${r.count} tools`;
-    $('modeNote').textContent = `Demonstration desk: the data is fictional, the controls evaluated against it are real. ${r.count} tools are registered with this browser and are re-registered whenever authority changes. Nothing leaves this tab.`;
-    document.modelContext.addEventListener('toolchange', async () => {
+
+    // Ask the browser what it actually holds rather than counting what we sent.
+    // The declarative <form> tool registers itself, so our own tally would be
+    // one short, and a number on screen the system cannot back is a number that
+    // should not be on screen.
+    const showCount = async () => {
       const t = await document.modelContext.getTools();
       count.textContent = `${t.length} tools`;
-    });
+      $('modeNote').textContent = `Demonstration desk: the data is fictional, the controls evaluated against it are real. ${t.length} tools are registered with this browser and are re-registered whenever authority changes. Nothing leaves this tab.`;
+    };
+    await showCount();
+    document.modelContext.addEventListener('toolchange', showCount);
   }
   render();
 })();

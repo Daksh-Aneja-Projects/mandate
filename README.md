@@ -223,6 +223,16 @@ takes the surface from 17 tools to 19 and revoking it takes it back to 17.
 
 ## Honesty
 
+**The controls here are a faithful model, not a security boundary.** Everything
+runs client-side, so anyone with developer tools open can edit the state and
+walk straight past every check in this repo. That is inherent to a page-hosted
+demonstration and it is worth being blunt about: what Mandate shows is the
+*shape* of the answer — that a page can hold authority, express it as a tool
+surface, and put a human inside the decision. A bank shipping this would mirror
+every one of these controls on the server that actually moves the money, and
+treat the page as the place where authority is *negotiated and displayed*, not
+the place where it is finally enforced.
+
 - The desk is a demonstration environment and says so on screen. The
   organisation, people, beneficiaries and payments are fictional.
 - The desk clock opens at 09:15 and runs forward in real time, so the rail

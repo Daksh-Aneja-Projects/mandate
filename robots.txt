@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://mandate-webmcp.vercel.app/sitemap.xml

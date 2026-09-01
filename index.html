@@ -4,7 +4,20 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Mandate - authority for agents on a payment desk</title>
-<meta name="description" content="Scoped, supervised, revocable authority for AI agents acting on a bank payment operations desk. Built on WebMCP.">
+<meta name="description" content="Scoped, supervised, revocable authority for AI agents acting on a bank payment operations desk. Built on WebMCP."><link rel="canonical" href="https://mandate-webmcp.vercel.app/">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://mandate-webmcp.vercel.app/">
+<meta property="og:site_name" content="Mandate">
+<meta property="og:title" content="Mandate - authority for agents on a payment desk">
+<meta property="og:description" content="An agent can investigate a bank payment desk freely, but it cannot move money. It has to ask a person for a mandate: a ceiling, a budget, an expiry. Grant it and the page re-registers its WebMCP tools. Revoke it and they are gone.">
+<meta property="og:image" content="https://mandate-webmcp.vercel.app/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="The Mandate payment operations desk, showing a queue of payments with plain-English reasons why each one is or is not clear to release.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Mandate - authority for agents on a payment desk">
+<meta name="twitter:description" content="Agents are locked out of high-consequence systems because there is no way to grant them partial, supervised, revocable authority. WebMCP lets the page be the authority boundary.">
+<meta name="twitter:image" content="https://mandate-webmcp.vercel.app/og.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -24,11 +37,11 @@
       <span class="desk-clock" id="deskClock" title="This demonstration desk opens at 09:15 and runs forward in real time.">--:--</span>
     </div>
 
-    <nav class="views" id="views" aria-label="Desk views">
-      <button class="view-tab is-on" data-view="queue">Payment queue</button>
-      <button class="view-tab" data-view="authority">Authority</button>
-      <button class="view-tab" data-view="trail">Audit trail</button>
-    </nav>
+    <div class="views" id="views" role="tablist" aria-label="Desk views">
+      <button class="view-tab is-on" data-view="queue" role="tab" aria-selected="true" aria-controls="view-queue">Payment queue</button>
+      <button class="view-tab" data-view="authority" role="tab" aria-selected="false" aria-controls="view-authority" tabindex="-1">Authority</button>
+      <button class="view-tab" data-view="trail" role="tab" aria-selected="false" aria-controls="view-trail" tabindex="-1">Audit trail</button>
+    </div>
 
     <div class="bar-right">
       <div class="agent-chip" id="agentChip" title="WebMCP status">
@@ -52,7 +65,7 @@
         <div class="authority" id="authority"></div>
       </section>
 
-      <section class="panel panel-grow">
+      <section class="panel">
         <h2 class="panel-title">Rails closing today</h2>
         <ul class="rails" id="rails"></ul>
       </section>
@@ -66,7 +79,7 @@
     <!-- -------------------------------------------------------- centre -->
     <section class="col col-main" aria-label="Main view">
 
-      <div class="view" id="view-queue">
+      <div class="view" id="view-queue" role="tabpanel" tabindex="-1" aria-label="Payment queue">
         <div class="view-head">
           <div class="view-head-l">
             <h1 class="view-title">Payment queue</h1>
@@ -82,7 +95,7 @@
         <div class="scroll" id="queueScroll"><ul class="queue" id="queue"></ul></div>
       </div>
 
-      <div class="view is-hidden" id="view-authority">
+      <div class="view is-hidden" id="view-authority" role="tabpanel" tabindex="-1" aria-label="Authority">
         <div class="view-head">
           <div class="view-head-l">
             <h1 class="view-title">Authority</h1>
@@ -92,7 +105,7 @@
         <div class="scroll"><div id="authorityDetail"></div></div>
       </div>
 
-      <div class="view is-hidden" id="view-trail">
+      <div class="view is-hidden" id="view-trail" role="tabpanel" tabindex="-1" aria-label="Audit trail">
         <div class="view-head">
           <div class="view-head-l">
             <h1 class="view-title">Audit trail</h1>
@@ -132,7 +145,7 @@
 <!-- Declarative WebMCP: a plain HTML form is a tool. The submit handler holds
      the agent's call open on a promise until a person at the desk decides,
      which is the same human gate the imperative tools use. -->
-<form id="handoffForm" class="sr-only"
+<form id="handoffForm" class="sr-only" aria-label="Ask the person at the desk a question. This form is also published to connected agents as a tool."
       toolname="ask_the_desk"
       tooldescription="Put a question or a recommendation in front of whoever is at the desk right now and wait for their written answer. Use this when you need a human judgement that is not itself a payment approval, for example whether a supplier relationship is genuine or which of two invoices is the correct one.">
   <label>Question for the desk

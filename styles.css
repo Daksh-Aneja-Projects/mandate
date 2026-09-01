@@ -8,7 +8,7 @@
   --line-2: rgba(255, 255, 255, .13);
   --ink: #eef1f6;
   --ink-2: #a7aebc;
-  --ink-3: #6c7484;
+  --ink-3: #7d8493; /* 5.15:1 on panel - WCAG AA at normal text size */
 
   --accent: #7c9cff;
   --accent-dim: rgba(124, 156, 255, .13);
@@ -77,14 +77,15 @@ button { background: none; border: 0; cursor: pointer; }
 }
 
 .bar {
-  display: flex; align-items: center; gap: 20px;
+  display: flex; align-items: center; gap: 16px;
   padding: 0 18px; height: 54px;
   border-bottom: 1px solid var(--line);
   background: rgba(8, 9, 11, .72);
   backdrop-filter: blur(14px);
+  overflow: hidden; /* the bar truncates, it never pushes the page sideways */
 }
 
-.brand { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.brand { display: flex; align-items: center; gap: 9px; min-width: 0; flex: 0 1 auto; }
 .mark { display: inline-flex; width: 21px; height: 21px; color: var(--accent); flex: none; }
 .mark svg { width: 100%; height: 100%; }
 .wordmark {
@@ -102,7 +103,7 @@ button { background: none; border: 0; cursor: pointer; }
   overflow: hidden; text-overflow: ellipsis;
 }
 
-.views { display: flex; gap: 2px; margin-left: auto; }
+.views { display: flex; gap: 2px; margin: 0 auto; flex: none; }
 .view-tab {
   padding: 6px 12px; border-radius: 7px; color: var(--ink-3);
   font-size: 13px; transition: color var(--dur) var(--ease), background var(--dur) var(--ease);
@@ -110,7 +111,7 @@ button { background: none; border: 0; cursor: pointer; }
 .view-tab:hover { color: var(--ink-2); background: rgba(255, 255, 255, .035); }
 .view-tab.is-on { color: var(--ink); background: rgba(255, 255, 255, .06); }
 
-.bar-right { display: flex; align-items: center; gap: 14px; margin-left: auto; }
+.bar-right { display: flex; align-items: center; gap: 12px; flex: 0 0 auto; }
 
 .agent-chip {
   display: flex; align-items: center; gap: 8px;
@@ -132,12 +133,15 @@ button { background: none; border: 0; cursor: pointer; }
 }
 .tool-count { font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
 
-.who { display: flex; align-items: center; gap: 7px; }
-.who-label { font-size: 11.5px; color: var(--ink-3); }
+.who { display: flex; align-items: center; gap: 7px; min-width: 0; }
+.who-label { font-size: 11.5px; color: var(--ink-3); white-space: nowrap; }
 .who select {
   background: var(--panel-2); border: 1px solid var(--line);
   border-radius: 7px; padding: 5px 8px; font-size: 12.5px;
+  max-width: 200px; text-overflow: ellipsis;
 }
+@media (max-width: 1400px) { .who-label { display: none; } }
+@media (max-width: 1180px) { .desk-name { display: none; } .brand .sep { display: none; } }
 
 /* ------------------------------------------------------------- grid ---- */
 .grid {
@@ -148,15 +152,23 @@ button { background: none; border: 0; cursor: pointer; }
 }
 .col { display: flex; flex-direction: column; gap: 12px; min-height: 0; min-width: 0; }
 
+/* On a short viewport the side columns scroll inside themselves rather than
+   letting panels spill over one another. */
+.col-left, .col-right { overflow-y: auto; overscroll-behavior: contain; }
+.col-left::-webkit-scrollbar, .col-right::-webkit-scrollbar { width: 8px; }
+.col-left::-webkit-scrollbar-thumb, .col-right::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, .09); border-radius: 4px; }
+
 .panel {
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: var(--r);
   padding: 13px 14px;
   min-height: 0;
+  flex: none;
+  overflow: hidden;
   display: flex; flex-direction: column;
 }
-.panel-grow { flex: 1; min-height: 0; }
+.panel-grow { flex: 1 1 auto; min-height: 220px; }
 
 .panel-title {
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
@@ -440,8 +452,13 @@ button { background: none; border: 0; cursor: pointer; }
   .app { height: auto; min-height: 100dvh; }
   .grid { grid-template-columns: minmax(0, 1fr); }
   .col-left { order: 2; }
-  .bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 10px; }
-  .views, .bar-right { margin-left: 0; }
+  .bar { flex-wrap: wrap; height: auto; padding: 10px 14px; gap: 10px; overflow: visible; }
+  .views { margin: 0; }
+  .bar-right { flex: 1 1 100%; flex-wrap: wrap; margin-left: 0; }
+  .agent-chip { flex: 1 1 auto; min-width: 0; }
+  .agent-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .who { flex: 1 1 160px; }
+  .who select { max-width: 100%; width: 100%; }
   .scroll { overflow: visible; }
   .dock { bottom: 12px; }
 }
