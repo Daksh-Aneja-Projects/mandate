@@ -84,6 +84,28 @@ const refuse = (why, remedies = [], data) => ok(
 
 const fault = (text) => ({ content: [{ type: 'text', text }], isError: true });
 
+/**
+ * The first meaningful line a tool handed back, for the desk screen. Quoting
+ * what the agent was actually told beats summarising it: a person watching sees
+ * the same words, and nothing is put in the agent's mouth.
+ */
+function firstLine(res) {
+  const text = res?.content?.map((c) => c?.text).filter(Boolean).join('\n') || '';
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean);
+  let line = lines[0] || '';
+  // A line ending in a colon introduces the answer rather than being it.
+  if (line.endsWith(':') && lines[1]) line = lines[1];
+  if (line.length <= 150) return line;
+
+  // Cut at a sentence if there is one, a word otherwise. Never mid-word: a
+  // person is reading this, and "time-b…" tells them nothing.
+  const cut = line.slice(0, 150);
+  const sentence = cut.lastIndexOf('. ');
+  if (sentence > 70) return cut.slice(0, sentence + 1);
+  const space = cut.lastIndexOf(' ');
+  return `${cut.slice(0, space > 70 ? space : 149)}…`;
+}
+
 /** Amounts arrive as the user would write them ("4820.00"), never as an agent's
  *  arithmetic. Chrome's own guidance: accept raw input, do not ask the model to
  *  calculate. We do the conversion to minor units here, strictly. */
@@ -288,10 +310,16 @@ function buildTools() {
       const r = S.check(p);
       if (r.decision === 'allow') return ok(`${id} is not held. Every control passes for it.`);
       const remedies = r.needs.flatMap((c) => c.remedies);
+      const lead = r.needs[0];
+      // Lead with the reason, not the payment's name badge. Whoever asked
+      // already knows which payment they asked about.
       return ok([
-        `${id} - ${money(p.amountMinor, p.ccy)} to ${S.beneficiary(p.beneficiaryId)?.name || 'an unknown beneficiary'}.`,
+        `${lead.title}. ${lead.explain}`,
         ``,
-        ...r.needs.map((c) => `${c.status === 'block' ? 'Blocked' : 'Needs attention'} - ${c.title}\n  ${c.explain}`),
+        `${id}, ${money(p.amountMinor, p.ccy)} to ${S.beneficiary(p.beneficiaryId)?.name || 'an unknown beneficiary'}.`,
+        ...(r.needs.length > 1
+          ? ['', 'Also outstanding:', ...r.needs.slice(1).map((c) => `  ${c.status === 'block' ? 'Blocked' : 'Needs attention'} - ${c.title}: ${c.explain}`)]
+          : []),
         remedies.length ? `\nRoutes forward:\n${remedies.map((x) => `  - ${x.tool}: ${x.why}`).join('\n')}` : '',
       ].join('\n'));
     },
@@ -751,10 +779,10 @@ export async function syncTools() {
       S.trace(t.name, input, 'running');
       try {
         const res = await inner(input, ctx || {});
-        S.trace(t.name, input, res?.isError ? 'error' : 'done');
+        S.trace(t.name, input, res?.isError ? 'error' : 'done', firstLine(res));
         return res;
       } catch (e) {
-        S.trace(t.name, input, 'error');
+        S.trace(t.name, input, 'error', `Something went wrong and nothing was changed: ${e.message}`);
         return fault(`Something went wrong inside ${t.name} and nothing was changed: ${e.message}`);
       }
     };
@@ -784,4 +812,11 @@ export function scheduleSync() {
   setTimeout(async () => { queued = false; await syncTools(); }, 0);
 }
 
-export const toolNames = () => buildTools().map((t) => ({ name: t.name, readOnly: !!t.annotations?.readOnlyHint }));
+/** Tools that exist only because a person granted a mandate. */
+export const MANDATE_TOOLS = new Set(['release_under_mandate', 'revoke_mandate']);
+
+export const toolNames = () => buildTools().map((t) => ({
+  name: t.name,
+  readOnly: !!t.annotations?.readOnlyHint,
+  fromMandate: MANDATE_TOOLS.has(t.name),
+}));

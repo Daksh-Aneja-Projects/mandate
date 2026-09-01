@@ -9,7 +9,7 @@
 import * as S from './state.js';
 import { RAILS, ROLES, money } from './controls.js';
 import { icon, iconEl } from './icons.js';
-import { syncTools, scheduleSync, toolNames, bureauReachable } from './tools.js';
+import { syncTools, scheduleSync, toolNames, bureauReachable, MANDATE_TOOLS } from './tools.js';
 
 const $ = (id) => document.getElementById(id);
 /** Agent-supplied strings reach this screen. Single quotes are escaped too, so
@@ -58,6 +58,19 @@ let litPayment = null;
 let knownTools = new Set();
 let dockKey = '';
 let bureau = null;   // null until checked, then true or false. Never assumed.
+let webmcpOn = false;
+let capsList = null; // null until the browser tells us what it holds
+let knownCaps = new Set();
+let traceSig = '';
+
+/** The demo path, in order. Offered when no agent has done anything yet. */
+const PROMPTS = [
+  'Look at this payment desk and tell me what is blocking the run.',
+  'Re-check that sanctions match with the screening bureau.',
+  'Release the five clean SEPA payments.',
+  'Then ask me for the authority you need to clear them.',
+  'Now clear everything you are allowed to.',
+];
 
 // ------------------------------------------------------------- boot ----
 $('mark').innerHTML = icon.mark;
@@ -263,6 +276,17 @@ function renderQueue() {
   for (const p of S.state.payments) delete p.fresh;
 }
 
+// Clicking a suggested prompt copies it, so nobody has to retype from a screen.
+$('trace').addEventListener('click', (e) => {
+  const b = e.target.closest('.hint'); if (!b) return;
+  const text = PROMPTS[Number(b.dataset.p)];
+  navigator.clipboard.writeText(text).then(() => {
+    const was = b.textContent;
+    b.innerHTML = `<span class="copied">Copied. Paste it to the agent.</span>`;
+    setTimeout(() => { b.textContent = was; }, 1400);
+  }, () => { /* clipboard refused; the text is on screen to read */ });
+});
+
 $('queue').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act="approve"]');
   if (!b) return;
@@ -344,15 +368,80 @@ function renderTrail() {
     || `<li class="empty">Nothing has happened on this desk yet.</li>`;
 }
 
+/**
+ * The agent's capabilities, as the browser currently holds them.
+ *
+ * This is the one thing on screen that is worth watching closely: it is not a
+ * description of what the agent may do, it is the list itself, and it changes
+ * when a person changes their mind.
+ */
+function renderCaps() {
+  const el = $('caps');
+  const note = $('capsNote');
+  const count = $('capCount');
+
+  if (!capsList) {
+    count.textContent = 'none registered';
+    el.innerHTML = toolNames().map((t) => `<span class="cap ${t.readOnly ? '' : 'is-write'}">${esc(t.name)}</span>`).join('');
+    note.textContent = 'No agent interface in this browser, so none of these are registered with it. This is what a connected agent would be offered.';
+  } else {
+    count.textContent = `${capsList.length} tools`;
+    // Mandate-granted tools lead, so their arrival and departure is impossible
+    // to miss without having to scroll for it.
+    const sorted = [...capsList].sort((a, b) =>
+      (b.fromMandate - a.fromMandate) || a.name.localeCompare(b.name));
+    const first = knownCaps.size === 0;
+
+    el.innerHTML = sorted.map((t) => `<span class="cap${t.readOnly ? '' : ' is-write'}${t.fromMandate ? ' is-mandate' : ''}${!first && !knownCaps.has(t.name) ? ' is-new' : ''}">${esc(t.name)}</span>`).join('');
+    note.textContent = sorted.some((t) => t.fromMandate)
+      ? 'The highlighted tools exist only while the mandate does. Revoke it and they are gone before the agent’s next call.'
+      : 'This is the list the browser holds, not a description of it. Grant the agent a mandate and it changes.';
+    knownCaps = new Set(capsList.map((t) => t.name));
+  }
+
+  // Only fade the edge when there is genuinely more below it.
+  el.classList.toggle('is-clipped', el.scrollHeight > el.clientHeight + 1);
+}
+
+function startHints() {
+  if (!webmcpOn) {
+    return `<div class="hints">
+      <p>No agent is connected to this page, so nothing has been called.</p>
+      <p>Open it in ChatGPT's in-app browser, or in Chromium 146 or newer with
+      <span style="font-family:var(--mono);font-size:11px">chrome://flags/#enable-webmcp-testing</span>
+      enabled. Every call the agent makes will appear here, with what it was told in reply.</p>
+      <p>The desk itself is fully operable by hand in the meantime.</p>
+    </div>`;
+  }
+  return `<div class="hints">
+    <p>An agent is connected but has not called anything yet. Ask it these, in order.</p>
+    ${PROMPTS.map((p, i) => `<button class="hint" data-p="${i}">${esc(p)}</button>`).join('')}
+    <p>Click one to copy it.</p>
+  </div>`;
+}
+
 function renderTrace() {
   const busy = S.state.lastToolAt && Date.now() - S.state.lastToolAt < 1500;
   $('tracePill').textContent = S.state.agentTrace.length ? (busy ? 'working' : `${S.state.agentTrace.length} calls`) : 'idle';
   $('tracePill').classList.toggle('is-busy', !!busy);
 
-  $('trace').innerHTML = S.state.agentTrace.length
-    ? S.state.agentTrace.slice(0, 40).map((t) => `
-      <li><span class="s ${t.outcome}"></span><span class="n">${esc(t.tool)}</span><span class="t">${clock(t.at)}</span></li>`).join('')
-    : `<li class="empty" style="padding:18px 0">No agent has called anything yet. Open this page in a browser with an agent and it will appear here as it works.</li>`;
+  // Rebuilt only when something actually changed, so the one-second tick does
+  // not clobber a "Copied" confirmation under the cursor.
+  const sig = `${webmcpOn}|${S.state.agentTrace.map((t) => t.tool + t.outcome + t.at).join(',')}`;
+  if (sig !== traceSig) {
+    traceSig = sig;
+    $('trace').innerHTML = S.state.agentTrace.length
+      ? S.state.agentTrace.slice(0, 30).map((t) => {
+        const refused = /^Refused\./.test(t.summary || '');
+        return `<li class="${refused ? 'r-refused' : t.outcome === 'error' ? 'r-error' : ''}">
+          <span class="s ${t.outcome}"></span>
+          <span class="n">${esc(t.tool)}</span>
+          <span class="t">${clock(t.at)}</span>
+          ${t.summary ? `<span class="sum">${esc(t.summary)}</span>` : ''}
+        </li>`;
+      }).join('')
+      : startHints();
+  }
 
   $('undo').innerHTML = S.state.undoStack.length
     ? S.state.undoStack.slice(0, 6).map((u, i) => `
@@ -454,7 +543,7 @@ function wireCard(req) {
         perPaymentMinor: per, totalMinor: tot, ccy: req.proposal.ccy,
         rails: req.proposal.rails, knownBeneficiariesOnly: known, minutes: mins,
         reason: req.proposal.reason, grantedBy: S.state.me,
-        expiresAt: new Date(Date.now() + mins * 60000).toISOString(),
+        expiresAt: new Date(S.deskNow().getTime() + mins * 60000).toISOString(),
       });
       // Answer the waiting agent first, then re-register. The other order
       // tears down the tool whose call is still open.
@@ -536,6 +625,7 @@ function render() {
   renderAuthority();
   renderRails();
   renderExposure();
+  renderCaps();
   renderDock();
   if (view === 'queue') renderQueue();
   if (view === 'authority') renderAuthorityDetail();
@@ -585,10 +675,17 @@ if (bus) {
     // The declarative <form> tool registers itself, so our own tally would be
     // one short, and a number on screen the system cannot back is a number that
     // should not be on screen.
+    webmcpOn = true;
     const showCount = async () => {
       const t = await document.modelContext.getTools();
       count.textContent = `${t.length} tools`;
+      capsList = t.map((x) => ({
+        name: x.name,
+        readOnly: !!x.annotations?.readOnlyHint,
+        fromMandate: MANDATE_TOOLS.has(x.name),
+      }));
       $('modeNote').textContent = `Demonstration desk: the data is fictional, the controls evaluated against it are real. ${t.length} tools are registered with this browser and are re-registered whenever authority changes. Nothing leaves this tab.`;
+      render();
     };
     await showCount();
     document.modelContext.addEventListener('toolchange', showCount);

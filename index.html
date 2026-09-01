@@ -118,7 +118,18 @@
     </section>
 
     <!-- --------------------------------------------------------- right -->
-    <aside class="col col-right" aria-label="Agent activity">
+    <aside class="col col-right" aria-label="The agent">
+      <!-- The signature element. This list is not decoration: it is what the
+           browser currently holds, and it changes when authority changes. -->
+      <section class="panel">
+        <h2 class="panel-title">
+          What the agent can do now
+          <span class="pill" id="capCount"></span>
+        </h2>
+        <div class="caps" id="caps" aria-live="polite"></div>
+        <p class="caps-note" id="capsNote"></p>
+      </section>
+
       <section class="panel panel-grow">
         <h2 class="panel-title">
           Agent activity
