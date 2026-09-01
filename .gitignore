@@ -1,9 +1,23 @@
+# dependencies (there are none at runtime, but tooling may create these)
 node_modules/
-.DS_Store
+
+# deploy platform state
 .vercel
 .netlify
-*.log
+
+# secrets
 .env
 .env.*
 
-.vercel
+# internal working files, never published
+DEMO-SCRIPT.md
+SUBMISSION.md
+*.local.md
+
+# os and editor noise
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+.idea/
+.vscode/
