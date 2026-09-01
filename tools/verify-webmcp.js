@@ -65,7 +65,6 @@ try {
   await new Promise((r) => ws.addEventListener('open', r, { once: true }));
   const send = cdp(ws);
   await send('Runtime.enable');
-  await sleep(1200); // let the module boot and register
 
   const evaluate = async (expression) => {
     const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
@@ -89,6 +88,17 @@ try {
     }
     throw last;
   };
+
+  // Wait for the page to finish registering rather than guessing at a delay.
+  // Over a network the declarative <form> tool appears as soon as the HTML is
+  // parsed, well before the module has run, so counting tools is the only
+  // honest readiness signal.
+  for (let i = 0; i < 60; i++) {
+    const n = await evaluate(`document.modelContext
+      ? document.modelContext.getTools().then(t => t.length) : 0`).catch(() => 0);
+    if (n >= 15) break;
+    await sleep(400);
+  }
 
   console.log(`\nMandate - WebMCP verification against ${page.url}\n`);
 
