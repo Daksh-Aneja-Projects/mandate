@@ -159,6 +159,33 @@ try {
   const revoked = await evaluate(`document.modelContext.getTools().then(ts => ts.map(t => t.name))`);
   record('revoking removes it again', !revoked.includes('release_under_mandate'), `${revoked.length} tools`);
 
+  // ---- cross-origin federation -------------------------------------------
+  // A second organisation on its own origin publishes one tool to this desk
+  // with exposedTo; the desk discovers it with getTools({fromOrigins}).
+  const BUREAU = 'https://mandate-screening.vercel.app';
+
+  record('the partner origin is embedded with allow="tools"',
+    await evaluate(`(() => { const f = document.getElementById('bureau');
+      return !!f && f.getAttribute('allow') === 'tools'; })()`));
+
+  let partner = [];
+  for (let i = 0; i < 25; i++) {
+    partner = await evaluate(`document.modelContext.getTools({ fromOrigins: ${JSON.stringify([BUREAU])} })
+      .then(ts => ts.map(t => t.name)).catch(() => [])`) || [];
+    if (partner.length) break;
+    await sleep(400);
+  }
+  const federated = partner.includes('recheck_beneficiary_screening');
+  record('the desk discovers the partner\'s tool across origins', federated,
+    federated ? 'recheck_beneficiary_screening' : `saw ${JSON.stringify(partner)}`);
+
+  const brokered = await run('recheck_screening_with_bureau', { beneficiaryId: 'BEN-06' });
+  const reached = /match still stands/.test(brokered.out || '');
+  record('the desk brokers a call into the other organisation', reached,
+    reached ? 'bureau answered, match stands' : `degraded: ${String(brokered.out).slice(0, 300)}`);
+  record('an unreachable bureau degrades honestly rather than clearing anyone',
+    reached || /Not available/.test(brokered.out || ''));
+
   const failed = results.filter((r) => !r.ok).length;
   console.log(`\n${results.length - failed}/${results.length} checks passed.\n`);
   process.exitCode = failed ? 1 : 0;

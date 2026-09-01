@@ -142,6 +142,13 @@
   </footer>
 </div>
 
+<!-- A second organisation on its own origin. It publishes one tool to this
+     desk via exposedTo; this desk discovers it with getTools({fromOrigins}).
+     The frame must stay rendered for the tools permission policy to apply. -->
+<iframe id="bureau" class="sr-only" src="https://mandate-screening.vercel.app"
+        allow="tools" referrerpolicy="no-referrer" loading="eager"
+        title="Sentinel Screening Bureau, a partner organisation that publishes a sanctions screening tool to this desk"></iframe>
+
 <!-- Declarative WebMCP: a plain HTML form is a tool. The submit handler holds
      the agent's call open on a promise until a person at the desk decides,
      which is the same human gate the imperative tools use. -->

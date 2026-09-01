@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sentinel Screening Bureau</title>
+<meta name="description" content="A sanctions and PEP screening bureau that publishes a re-check tool to authorised partner desks over WebMCP, without ever releasing its watchlist.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600&family=Inter:wght@400;450;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./screening.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 4 6 8v7c0 6 4 10.5 10 12 6-1.5 10-6 10-12V8L16 4Z' fill='none' stroke='%233FB98B' stroke-width='2.4'/></svg>">
+</head>
+<body>
+<main class="s">
+  <header class="s-head">
+    <span class="s-mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none">
+        <path d="M16 4 6 8v7c0 6 4 10.5 10 12 6-1.5 10-6 10-12V8L16 4Z" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>
+        <path d="m11.5 15.5 3 3 6-6.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </span>
+    <div>
+      <h1>Sentinel Screening Bureau</h1>
+      <p class="s-sub">Sanctions and PEP screening, published to authorised partner desks.</p>
+    </div>
+  </header>
+
+  <section class="s-card">
+    <h2>What this origin does</h2>
+    <p>
+      Sentinel holds the watchlist. It never hands the list to anyone. Instead it
+      publishes a single tool, <code>recheck_beneficiary_screening</code>, to a
+      named list of partner origins over WebMCP.
+    </p>
+    <p>
+      A partner desk can ask "is this counterparty still matched, and why", and
+      gets back a decision and a reason. The underlying records stay here, on
+      this origin, under this bureau's control. That is the point: two
+      organisations cooperating on a decision without either one handing over
+      its data or its authority.
+    </p>
+  </section>
+
+  <section class="s-card">
+    <h2>Published to</h2>
+    <ul class="s-origins" id="origins"></ul>
+    <p class="s-note" id="status">Checking whether this browser supports WebMCP…</p>
+  </section>
+
+  <section class="s-card">
+    <h2>Watchlist held on this origin</h2>
+    <p class="s-note">Demonstration records. Never leaves this origin; only decisions do.</p>
+    <ul class="s-list" id="list"></ul>
+  </section>
+
+  <footer class="s-foot">
+    A demonstration counterparty for
+    <a href="https://mandate-webmcp.vercel.app">Mandate</a>. Fictional records, real WebMCP.
+  </footer>
+</main>
+<script type="module" src="./screening.js"></script>
+</body>
+</html>

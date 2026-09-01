@@ -9,7 +9,7 @@
 import * as S from './state.js';
 import { RAILS, ROLES, money } from './controls.js';
 import { icon, iconEl } from './icons.js';
-import { syncTools, scheduleSync, toolNames } from './tools.js';
+import { syncTools, scheduleSync, toolNames, bureauReachable } from './tools.js';
 
 const $ = (id) => document.getElementById(id);
 /** Agent-supplied strings reach this screen. Single quotes are escaped too, so
@@ -31,6 +31,7 @@ let filter = 'all';
 let litPayment = null;
 let knownTools = new Set();
 let dockKey = '';
+let bureau = null;   // null until checked, then true or false. Never assumed.
 
 // ------------------------------------------------------------- boot ----
 $('mark').innerHTML = icon.mark;
@@ -282,6 +283,21 @@ function renderAuthorityDetail() {
         who is at the desk and what authority stands, and re-registered with the browser whenever
         either changes.
       </p>
+    </div>
+    <div class="auth-card">
+      <h3>Sentinel Screening Bureau</h3>
+      <div class="role">A separate organisation, on its own origin</div>
+      <p>
+        ${bureau === null
+          ? 'Checking whether the bureau is publishing to this desk.'
+          : bureau
+            ? `The bureau publishes one tool to this desk and to no one else it has not named. This desk can ask it whether a counterparty is still matched; it cannot read the watchlist, add to it, or overrule a decision. The agent never talks to the bureau directly, it asks this desk, and this desk brokers the call and logs it.`
+            : `Not available. The bureau is not publishing to this desk at the moment, so screening decisions cannot be re-checked. Existing holds stand: an unreachable bureau is not a clearance.`}
+      </p>
+      <div class="toolset">
+        <span class="tool-tag ${bureau ? '' : 'is-ro'}">recheck_beneficiary_screening</span>
+        <span class="tool-tag is-ro">from mandate-screening.vercel.app</span>
+      </div>
     </div>
     ${people}
   </div>`;
@@ -542,6 +558,18 @@ if (bus) {
     };
     await showCount();
     document.modelContext.addEventListener('toolchange', showCount);
+
+    // The partner origin registers on its own schedule inside its frame, so
+    // poll briefly rather than reporting "not available" before it has had a
+    // chance to answer.
+    (async () => {
+      for (let i = 0; i < 20; i++) {
+        if (await bureauReachable()) { bureau = true; render(); return; }
+        await new Promise((r) => setTimeout(r, 500));
+      }
+      bureau = false;
+      render();
+    })();
   }
   render();
 })();

@@ -17,6 +17,50 @@ import { RAILS, ROLES, money } from './controls.js';
 let controller = null;
 let queued = false;
 
+/**
+ * A second organisation, on its own origin, publishing one tool to this desk.
+ *
+ * Sentinel holds the sanctions watchlist and never hands it over; it exposes
+ * `recheck_beneficiary_screening` to a named list of partner origins via
+ * `exposedTo`. This desk discovers it with `getTools({ fromOrigins })` and runs
+ * it with `executeTool`, then wraps the result in its own audit trail. The
+ * agent never talks to the bureau directly - it asks this desk, and this desk
+ * brokers the call under its own governance.
+ */
+const BUREAU = 'https://mandate-screening.vercel.app';
+
+async function bureauTool() {
+  try {
+    const tools = await document.modelContext.getTools({ fromOrigins: [BUREAU] });
+    return tools.find((t) => t.name === 'recheck_beneficiary_screening') || null;
+  } catch {
+    return null; // the bureau is simply not reachable; say so, never guess
+  }
+}
+
+/** Is the partner origin publishing to us right now? Used by the desk screen. */
+export const bureauReachable = async () => !!(await bureauTool());
+
+/**
+ * Read whatever executeTool hands back.
+ *
+ * Chrome 152 returns a JSON *string*, symmetric with taking its arguments as
+ * one, while the explainer reads as though an object comes back. Handle both,
+ * and treat a bare string as the answer itself, so this keeps working whichever
+ * way the spec settles.
+ */
+function readToolResult(res) {
+  let r = res;
+  if (typeof r === 'string') {
+    try { r = JSON.parse(r); } catch { return r.trim() || null; }
+  }
+  if (Array.isArray(r?.content)) {
+    const text = r.content.map((c) => c?.text).filter(Boolean).join('\n').trim();
+    return text || null;
+  }
+  return typeof r === 'string' ? (r.trim() || null) : null;
+}
+
 // ------------------------------------------------------------- helpers ----
 
 /** Result shaped for a reader. Narrative first, because there is no output
@@ -294,6 +338,45 @@ function buildTools() {
       return ok(rows.map(({ a, pledged, queued, free }) =>
         `  ${a.label}: ${money(a.availableMinor, a.ccy)} available, ${money(pledged, a.ccy)} already pledged, ${money(free, a.ccy)} genuinely free. A further ${money(queued, a.ccy)} sits in drafts not yet approved.`).join('\n'),
         rows.map(({ a, pledged, queued, free }) => ({ account: a.label, currency: a.ccy, available: (a.availableMinor / 100).toFixed(2), pledged: (pledged / 100).toFixed(2), free: (free / 100).toFixed(2), inDrafts: (queued / 100).toFixed(2) })));
+    },
+  });
+
+  T({
+    name: 'recheck_screening_with_bureau',
+    description: 'Re-check a beneficiary against the Sentinel screening bureau, a separate organisation on its own origin that holds the sanctions watchlist. Use this when a payment is stopped on a screening match and someone needs to know whether the match still stands today. The bureau answers with a decision and a reason; it never releases the underlying list, and this desk cannot overrule it.',
+    annotations: { readOnlyHint: true },
+    inputSchema: {
+      type: 'object',
+      properties: {
+        beneficiaryId: { type: 'string', description: 'Beneficiary id from search_beneficiaries, for example "BEN-06".' },
+      },
+      required: ['beneficiaryId'],
+    },
+    execute: async ({ beneficiaryId }, { signal } = {}) => {
+      const ben = S.beneficiary(beneficiaryId);
+      if (!ben) return fault(`There is no beneficiary ${beneficiaryId} on this desk. Call search_beneficiaries to find the right one.`);
+
+      const tool = await bureauTool();
+      if (!tool) return ok(
+        `Not available. The Sentinel screening bureau is not reachable from this desk at the moment, so the screening decision on ${ben.name} cannot be re-checked. Nothing has changed: whatever hold is already in place still stands, and it would be wrong to treat an unreachable bureau as a clearance.`);
+
+      let reply;
+      try {
+        const res = await document.modelContext.executeTool(tool, JSON.stringify({ name: ben.name }), { signal });
+        reply = readToolResult(res);
+      } catch (e) {
+        return ok(`Not available. The call to the Sentinel screening bureau failed (${e.message}). Nothing has changed and the existing hold stands.`);
+      }
+      if (!reply) return ok(`The Sentinel screening bureau answered, but returned nothing this desk could read. Treat ${ben.name} as unchanged.`);
+
+      S.log('screening', `The agent re-checked ${ben.name} with the Sentinel screening bureau, a separate organisation. The bureau replied: ${reply}`, 'agent');
+      return ok([
+        `Answer from the Sentinel screening bureau (${BUREAU}), which is a different organisation on a different origin:`,
+        ``,
+        reply,
+        ``,
+        `This desk brokered that call and logged it, but the decision is the bureau's. Nobody here can overrule it.`,
+      ].join('\n'));
     },
   });
 

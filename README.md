@@ -109,14 +109,49 @@ form.addEventListener('submit', (e) => {
 });
 ```
 
+### Cross-origin federation — authority across two organisations
+
+The same argument extends past one company. **Sentinel Screening Bureau**
+([`screening/`](screening/), live at https://mandate-screening.vercel.app) is a
+genuinely separate origin holding the sanctions watchlist. It never hands the
+list over. It publishes exactly one tool, to origins it names:
+
+```js
+await document.modelContext.registerTool({
+  name: 'recheck_beneficiary_screening',
+  description: 'Re-run sanctions and politically-exposed-person screening for one counterparty…',
+  annotations: { readOnlyHint: true },
+  inputSchema: { /* … */ },
+  execute: async ({ name }) => { /* … */ },
+}, { exposedTo: ['https://mandate-webmcp.vercel.app'] });
+```
+
+The desk embeds that origin with the `tools` permissions policy, discovers what
+it publishes, and brokers the call under its own governance — so the agent asks
+*the desk*, and the desk answers with the bureau's decision plus an audit entry:
+
+```html
+<iframe id="bureau" src="https://mandate-screening.vercel.app" allow="tools"></iframe>
+```
+
+```js
+const tools = await document.modelContext.getTools({ fromOrigins: [BUREAU] });
+const res = await document.modelContext.executeTool(tool, JSON.stringify({ name }), { signal });
+```
+
+Two organisations cooperating on one decision, with neither handing over its
+data or its authority. If the bureau is unreachable the desk says exactly that
+and leaves the hold in place, because an unreachable bureau is not a clearance.
+
 ### Everything else the spec offers
 
 | Capability | Where |
 |---|---|
-| `registerTool` with `annotations.readOnlyHint` | all eight read tools |
+| `registerTool` with `annotations.readOnlyHint` | all nine read tools |
 | `{ signal }` lifecycle, re-registered on state change | `syncTools()` in `src/tools.js` |
 | `toolchange` listener | header tool counter in `src/ui.js` |
-| `getTools()` / `executeTool()` | `tools/verify-webmcp.js` |
+| `getTools()` / `executeTool()` | the bureau broker in `src/tools.js` |
+| `exposedTo` + `getTools({ fromOrigins })` + `allow="tools"` | `screening/screening.js`, `index.html` |
 | Declarative `toolname` / `tooldescription` / `toolparamdescription` | `index.html` |
 | `e.agentInvoked` + `e.respondWith(promise)` | `src/ui.js` |
 | `toolactivated` event | `src/ui.js` |
@@ -126,19 +161,23 @@ Chrome's guidance says to accept raw user input rather than making the agent do
 arithmetic, so every amount is taken as written (`"4820.00"`) and converted to
 integer minor units in one strict parser. No float ever touches an amount.
 
-> **A note on the spec.** The explainer shows `executeTool` taking an arguments
-> object; Chrome's imperative API docs describe a JSON string. Against Chrome
-> 152 it is a **JSON string**. `tools/verify-webmcp.js` tries both and reports
-> which the browser took.
+> **Two notes on the spec, both found by testing rather than reading.**
+> The explainer shows `executeTool` taking an arguments *object*; Chrome's
+> imperative API docs say a JSON *string*. Against Chrome 152 it is a JSON
+> string — **and it returns one too**, which the explainer does not say at all.
+> A cross-origin call came back as a serialised string where `result.content`
+> was expected, so `readToolResult()` in `src/tools.js` handles both shapes and
+> `tools/verify-webmcp.js` reports which the browser actually took.
 
 ## The tool surface
 
-Nineteen tools in four tiers. The last tier only exists while a person says it
-does.
+Twenty tools in five tiers, plus one more published from a partner origin. The
+fifth tier only exists while a person says it does.
 
 **Read — free rein** (`readOnlyHint: true`)
 `get_desk_status` · `explain_my_limits` · `search_payments` · `get_payment` ·
-`explain_hold` · `search_beneficiaries` · `get_exposure` · `get_audit_trail`
+`explain_hold` · `search_beneficiaries` · `get_exposure` · `get_audit_trail` ·
+`recheck_screening_with_bureau`
 
 **Prepare — moves no money**
 `draft_payment` · `amend_payment` · `attach_evidence`
@@ -151,6 +190,9 @@ does.
 
 **Only while a mandate is in force**
 `release_under_mandate` · `revoke_mandate`
+
+**Published by a different organisation, on its own origin**
+`recheck_beneficiary_screening`
 
 ## The controls are real
 
@@ -184,14 +226,20 @@ app is static files that a judge can open with one click.
 ```
 index.html          the desk
 director.html       recording teleprompter, follows the desk over BroadcastChannel
+404.html
 styles.css
 src/controls.js     the control engine        (no DOM, no I/O, fully testable)
 src/state.js        state, audit trail, undo, the human-in-the-loop gate
-src/tools.js        the WebMCP surface
+src/tools.js        the WebMCP surface, including the cross-origin broker
 src/ui.js           rendering and live visuals
 src/seed.js         the demonstration desk
+screening/          Sentinel Screening Bureau - a separate origin, deployed separately
 test/               34 tests, node:test, no framework
-tools/verify-webmcp.js   drives real Chrome over CDP and asks what registered
+
+tools/verify-webmcp.js     drives real Chrome over CDP and asks what registered
+tools/layout-check.js      overflow and overlap across 8 viewports
+tools/agent-legibility.js  development only: can a real model pick the right tool?
+tools/shot.js              captures the social preview from the running app
 ```
 
 ## Running it
@@ -214,12 +262,29 @@ takes the surface from 17 tools to 19 and revoking it takes it back to 17.
 
 ```
   ok   document.modelContext is present
-  ok   the desk registered its tools - 17 tools
+  ok   the desk registered its tools - 18 tools
   ok   release refuses without a mandate
-  ok   granting a mandate adds release_under_mandate - 19 tools now
-  ok   revoking removes it again - 17 tools
-  12/12 checks passed.
+  ok   granting a mandate adds release_under_mandate - 20 tools now
+  ok   revoking removes it again - 18 tools
+  ok   the desk discovers the partner's tool across origins
+  ok   the desk brokers a call into the other organisation
+  16/16 checks passed.
 ```
+
+Two more checks worth running:
+
+```bash
+node tools/layout-check.js       # 8 viewports, no overflow, no overlapping panels
+node tools/agent-legibility.js   # needs a local Ollama; development only
+```
+
+The second one hands the real tool surface to a local model as function
+definitions and checks it picks the right tool from plain English, because a
+tool that works but that no agent *chooses* is a tool that fails in front of a
+user. It started at 13/15 and the miss was the most important call in the
+product — the fix was removing a cross-reference from a neighbouring tool's
+description, which had put one tool's trigger words into another's selection
+signal.
 
 ## Honesty
 
