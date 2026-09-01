@@ -7,14 +7,14 @@ const BEATS = [
   {
     at: 0, title: 'The desk',
     say: 'This is Mandate. It is a bank payment operations desk, and there is an AI agent connected to this page through <em>WebMCP</em>. Fifteen payments waiting, SEPA closes in six hours. Watch what the agent can do, and more importantly what it cannot.',
-    doThis: 'Have the desk on screen. Point at the queue, the rails counting down, and the "Agent interface live, 18 tools" chip in the header.',
+    doThis: 'Have the desk on screen. Point at the queue, the rails counting down on the left, and then at the panel top right: What the agent can do now, 18 tools.',
     watch: 'Keep this short. Fourteen seconds, then move.',
   },
   {
     at: 14, title: 'It reads the desk',
     say: 'It reads the desk through structured tools rather than guessing at the page, and every answer comes back as a sentence a person can act on, not a status code.',
     prompt: 'Look at this payment desk and tell me what is blocking the run.',
-    watch: 'Agent activity lights up on the right. It should surface the <b>sanctions match on Volkov Trading</b>, the <b>unverified beneficiary</b>, and the <b>payment on a rail that cannot carry its currency</b>.',
+    watch: 'Agent activity fills in on the right, and it prints <b>what the agent was actually told</b>, not just tool names. It should surface the <b>sanctions match on Volkov Trading</b>, the <b>unverified beneficiary</b>, and the <b>payment on a rail that cannot carry its currency</b>.',
     advanceOn: ['explain_hold', 'search_payments', 'get_desk_status'],
   },
   {
@@ -28,14 +28,14 @@ const BEATS = [
     at: 62, title: 'It hits the wall',
     say: 'Here is the part that matters. It cannot. The page refuses, and the refusal is not a four-oh-three, it is coaching: here are the routes forward.',
     prompt: 'Release the five clean SEPA payments.',
-    watch: 'A refusal: <b>segregation of duties</b>, an agent cannot authorise a payment on its own authority. Read the named routes out loud.',
+    watch: 'The refusal appears <b>in amber in Agent activity</b>, in the agent’s own words: segregation of duties, an agent cannot authorise a payment on its own authority. Read it off the screen.',
     advanceOn: ['release_payment'],
   },
   {
     at: 84, title: 'It asks for authority',
     say: 'So it asks me for a mandate. I set the ceiling, the budget, and when it expires. I can tighten any of it before I agree. And the moment I grant it, the page re-registers its tools: a tool that did not exist a second ago now does.',
     prompt: 'Then ask me for the authority you need to clear them.',
-    doThis: 'The mandate card slides up. Tighten the per-payment ceiling, shorten the expiry, then Grant mandate. Switch to the Authority tab and point at release_under_mandate appearing, 18 tools becoming 20.',
+    doThis: 'The mandate card slides up. Change Most per payment from 5000.00 to 2500.00, then Grant mandate. Do NOT change tabs - keep your eyes on the panel top right: release_under_mandate and revoke_mandate appear highlighted at the top of the list, and the count goes 18 to 20.',
     watch: 'The card is <b>editable before you agree</b>. That is the whole argument: the human holds the pen.',
     advanceOn: ['mandate-granted'],
   },
@@ -49,7 +49,7 @@ const BEATS = [
   {
     at: 150, title: 'I take it back',
     say: 'I take the authority back, and the tool disappears from the agent mid-session. Everything it did is on the audit trail in plain English, and every bit of it is reversible. That is the idea. WebMCP lets the page be the authority boundary, so an agent can finally be useful inside a system where getting it wrong moves real money.',
-    doThis: 'Click Revoke now. Show the Authority tab dropping back to 18 tools. Then the Audit trail tab. End on the trail.',
+    doThis: 'Click Revoke now in the Standing authority panel. The two highlighted tools vanish from the panel top right and the count drops back to 18, on screen, without changing tabs. Then open the Audit trail tab and end there.',
     watch: 'Close on the audit trail. Do not rush this line.',
     advanceOn: ['mandate-revoked'],
   },
