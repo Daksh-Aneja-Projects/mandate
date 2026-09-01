@@ -92,6 +92,9 @@ test('a mandate does not stretch: cap, budget, rail, expiry, unverified benefici
   assert.equal(mandateCovers(base, pmt({ amountMinor: 5_000_01 }), w).ok, false, 'per-payment cap');
   assert.equal(mandateCovers({ ...base, spentMinor: 49_000_00 }, pmt({ amountMinor: 2_000_00 }), w).ok, false, 'budget');
   assert.equal(mandateCovers(base, pmt({ rail: 'swift' }), w).ok, false, 'rail scope');
+  const xccy = mandateCovers(base, pmt({ ccy: 'GBP', amountMinor: 100_00 }), w);
+  assert.equal(xccy.ok, false, 'a EUR mandate must not authorise a GBP payment, however small');
+  assert.match(xccy.why, /does not carry across currencies/);
   assert.equal(mandateCovers({ ...base, expiresAt: at(9, 30).toISOString() }, pmt(), w).ok, false, 'expiry');
   assert.equal(mandateCovers(base, pmt({ beneficiaryId: 'B2' }), w).ok, false, 'unverified beneficiary');
   assert.equal(mandateCovers({ ...base, revokedAt: at(9, 50).toISOString() }, pmt(), w), null, 'revoked reads as no mandate');

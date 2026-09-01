@@ -1,0 +1,146 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mandate - authority for agents on a payment desk</title>
+<meta name="description" content="Scoped, supervised, revocable authority for AI agents acting on a bank payment operations desk. Built on WebMCP.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;450;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='5' fill='%237C9CFF'/><path d='M16 3.5a12.5 12.5 0 1 0 12.5 12.5' stroke='%237C9CFF' stroke-width='2.5' fill='none'/></svg>">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <header class="bar" role="banner">
+    <div class="brand">
+      <span class="mark" id="mark"></span>
+      <span class="wordmark">Mandate</span>
+      <span class="sep" aria-hidden="true"></span>
+      <span class="desk-name" id="deskName"></span>
+      <span class="desk-clock" id="deskClock" title="This demonstration desk opens at 09:15 and runs forward in real time.">--:--</span>
+    </div>
+
+    <nav class="views" id="views" aria-label="Desk views">
+      <button class="view-tab is-on" data-view="queue">Payment queue</button>
+      <button class="view-tab" data-view="authority">Authority</button>
+      <button class="view-tab" data-view="trail">Audit trail</button>
+    </nav>
+
+    <div class="bar-right">
+      <div class="agent-chip" id="agentChip" title="WebMCP status">
+        <span class="dot" id="agentDot"></span>
+        <span class="agent-label" id="agentLabel">Checking for an agent</span>
+        <span class="tool-count" id="toolCount"></span>
+      </div>
+      <label class="who">
+        <span class="who-label">At the desk</span>
+        <select id="whoSelect" aria-label="Who is at the desk"></select>
+      </label>
+    </div>
+  </header>
+
+  <main class="grid" id="grid">
+
+    <!-- ---------------------------------------------------------- left -->
+    <aside class="col col-left" aria-label="Authority and position">
+      <section class="panel panel-authority">
+        <h2 class="panel-title">Standing authority</h2>
+        <div class="authority" id="authority"></div>
+      </section>
+
+      <section class="panel panel-grow">
+        <h2 class="panel-title">Rails closing today</h2>
+        <ul class="rails" id="rails"></ul>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Cash position</h2>
+        <ul class="exposure" id="exposure"></ul>
+      </section>
+    </aside>
+
+    <!-- -------------------------------------------------------- centre -->
+    <section class="col col-main" aria-label="Main view">
+
+      <div class="view" id="view-queue">
+        <div class="view-head">
+          <div class="view-head-l">
+            <h1 class="view-title">Payment queue</h1>
+            <p class="view-sub" id="queueSub"></p>
+          </div>
+          <div class="filters" id="filters" role="group" aria-label="Filter the queue">
+            <button class="chip is-on" data-filter="all">All</button>
+            <button class="chip" data-filter="draft">Awaiting release</button>
+            <button class="chip" data-filter="stuck">Cannot move</button>
+            <button class="chip" data-filter="done">Released</button>
+          </div>
+        </div>
+        <div class="scroll" id="queueScroll"><ul class="queue" id="queue"></ul></div>
+      </div>
+
+      <div class="view is-hidden" id="view-authority">
+        <div class="view-head">
+          <div class="view-head-l">
+            <h1 class="view-title">Authority</h1>
+            <p class="view-sub">What each person and the connected agent may do on this desk, and the tools that exist because of it.</p>
+          </div>
+        </div>
+        <div class="scroll"><div id="authorityDetail"></div></div>
+      </div>
+
+      <div class="view is-hidden" id="view-trail">
+        <div class="view-head">
+          <div class="view-head-l">
+            <h1 class="view-title">Audit trail</h1>
+            <p class="view-sub">Every action on this desk, by a person or an agent, written for a person to read.</p>
+          </div>
+        </div>
+        <div class="scroll"><ul class="trail" id="trail"></ul></div>
+      </div>
+
+    </section>
+
+    <!-- --------------------------------------------------------- right -->
+    <aside class="col col-right" aria-label="Agent activity">
+      <section class="panel panel-grow">
+        <h2 class="panel-title">
+          Agent activity
+          <span class="pill" id="tracePill">idle</span>
+        </h2>
+        <div class="scroll scroll-flush"><ul class="trace" id="trace"></ul></div>
+      </section>
+
+      <section class="panel">
+        <h2 class="panel-title">Reversible</h2>
+        <ul class="undo" id="undo"></ul>
+      </section>
+    </aside>
+  </main>
+
+  <!-- The dock is where a tool call sits open, waiting on a person. -->
+  <div class="dock" id="dock" aria-live="polite"></div>
+
+  <footer class="footnote">
+    <span id="modeNote"></span>
+  </footer>
+</div>
+
+<!-- Declarative WebMCP: a plain HTML form is a tool. The submit handler holds
+     the agent's call open on a promise until a person at the desk decides,
+     which is the same human gate the imperative tools use. -->
+<form id="handoffForm" class="sr-only"
+      toolname="ask_the_desk"
+      tooldescription="Put a question or a recommendation in front of whoever is at the desk right now and wait for their written answer. Use this when you need a human judgement that is not itself a payment approval, for example whether a supplier relationship is genuine or which of two invoices is the correct one.">
+  <label>Question for the desk
+    <input type="text" name="question" toolparamdescription="The question to put to the person at the desk, in plain language.">
+  </label>
+  <button type="submit">Ask</button>
+</form>
+
+<script type="module" src="./src/ui.js"></script>
+</body>
+</html>

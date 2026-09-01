@@ -56,6 +56,9 @@ export const money = (minor, ccy) =>
   new Intl.NumberFormat('en-IE', { style: 'currency', currency: ccy, minimumFractionDigits: 2 })
     .format(minor / 100);
 
+/** "1 day", "3 days". Never "1 day(s)" - a person is reading this. */
+const plural = (n, s, p = `${s}s`) => `${n} ${n === 1 ? s : p}`;
+
 const pass = (id, title, explain) => ({ id, status: 'pass', title, explain, remedies: [] });
 const warn = (id, title, explain, remedies = []) => ({ id, status: 'warn', title, explain, remedies });
 const block = (id, title, explain, remedies = []) => ({ id, status: 'block', title, explain, remedies });
@@ -72,6 +75,8 @@ const block = (id, title, explain, remedies = []) => ({ id, status: 'block', tit
 export function evaluate(p, actor, world, intent = 'authorize') {
   const role = ROLES[actor.role];
   const controls = [];
+  /** People are named, never referred to by their account id. */
+  const who = (id) => world.nameOf?.(id) ?? id;
   if (!role) {
     return {
       decision: 'blocked',
@@ -106,8 +111,8 @@ export function evaluate(p, actor, world, intent = 'authorize') {
   if (intent === 'authorize' || intent === 'release') {
     if (p.createdBy === actor.id) {
       controls.push(block('four_eyes', 'Four-eyes principle',
-        `${actor.id} created this payment, so ${actor.id} cannot also approve it. Approval has to come from a different person.`,
-        [{ tool: 'request_authorization', why: 'Send it to a colleague who did not create it.' }]));
+        `${who(actor.id)} prepared this payment, so ${who(actor.id)} cannot also approve it. Approval has to come from a different person.`,
+        [{ tool: 'request_authorization', why: 'Send it to a colleague who did not prepare it.' }]));
     } else if (actor.role === 'agent') {
       // An agent is never a pair of eyes. Under a mandate, the person who
       // granted it is the second pair - given ex ante, over a scope, rather
@@ -119,15 +124,15 @@ export function evaluate(p, actor, world, intent = 'authorize') {
           'An agent does not count as a second pair of eyes. Approval still has to come from a person other than the maker.'));
       } else if (g === p.createdBy) {
         controls.push(block('four_eyes', 'Four-eyes principle',
-          `${g} created this payment and also granted the mandate the agent is acting under, so only one person has touched it. A mandate cannot stand in for the second pair of eyes.`,
+          `${who(g)} prepared this payment and also granted the mandate the agent is acting under, so only one person has touched it. A mandate cannot stand in for the second pair of eyes.`,
           [{ tool: 'request_authorization', why: 'Route this payment to a different person.' }]));
       } else {
         controls.push(pass('four_eyes', 'Four-eyes principle',
-          `Created by ${p.createdBy}; ${g} is the second pair of eyes, given in advance by granting the mandate the agent is acting under.`));
+          `Prepared by ${who(p.createdBy)}; ${who(g)} is the second pair of eyes, given in advance by granting the mandate the agent is acting under.`));
       }
     } else {
       controls.push(pass('four_eyes', 'Four-eyes principle',
-        `Created by ${p.createdBy}, approved by ${actor.id}. Two distinct people.`));
+        `Prepared by ${who(p.createdBy)}, approved by ${who(actor.id)}. Two distinct people.`));
     }
   }
 
@@ -150,7 +155,7 @@ export function evaluate(p, actor, world, intent = 'authorize') {
       const usedToday = dailyUsed(world, actor.id);
       if (usedToday + p.amountMinor > role.dailyMinor) {
         controls.push(block('limit_daily', 'Above daily cumulative limit',
-          `${actor.id} has already approved ${money(usedToday, p.ccy)} today. This payment would take the total to ${money(usedToday + p.amountMinor, p.ccy)}, past the ${money(role.dailyMinor, p.ccy)} daily ceiling.`,
+          `${who(actor.id)} has already approved ${money(usedToday, p.ccy)} today. This payment would take the total to ${money(usedToday + p.amountMinor, p.ccy)}, past the ${money(role.dailyMinor, p.ccy)} daily ceiling.`,
           [{ tool: 'request_authorization', why: 'Route to an approver with headroom remaining today.' }]));
       } else {
         controls.push(pass('limit_daily', 'Within daily limit',
@@ -165,7 +170,7 @@ export function evaluate(p, actor, world, intent = 'authorize') {
             [{ tool: 'request_authorization', why: 'Route to a second approver to complete dual authorisation.' }]));
         } else {
           controls.push(pass('dual_auth', 'Dual authorisation satisfied',
-            `Approved by ${actor.id} and ${others.map((a) => a.by).join(', ')}.`));
+            `Approved by ${who(actor.id)} and ${others.map((a) => who(a.by)).join(', ')}.`));
         }
       }
     }
@@ -182,11 +187,11 @@ export function evaluate(p, actor, world, intent = 'authorize') {
       [{ tool: 'explain_hold', why: 'Read the full screening record.' }]));
   } else if (ben.status === 'unverified') {
     controls.push(warn('beneficiary', 'Beneficiary not yet verified',
-      `${ben.name} was added ${ben.addedDaysAgo} day(s) ago and has not had its account details confirmed out-of-band. New-beneficiary risk is where most payment fraud lands, so this needs a person to confirm.`,
+      `${ben.name} was added ${plural(ben.addedDaysAgo, 'day')} ago and has not had its account details confirmed out-of-band. New-beneficiary risk is where most payment fraud lands, so this needs a person to confirm.`,
       [{ tool: 'request_authorization', why: 'A person confirms the beneficiary and approves in one step.' }]));
   } else {
     controls.push(pass('beneficiary', 'Beneficiary verified',
-      `${ben.name} was verified on ${ben.verifiedOn} and has settled ${ben.priorPayments} prior payment(s) without exception.`));
+      `${ben.name} was verified on ${ben.verifiedOn} and has settled ${plural(ben.priorPayments, 'prior payment')} without exception.`));
   }
 
   // ---- 5. Funding ------------------------------------------------------------
@@ -234,7 +239,7 @@ export function evaluate(p, actor, world, intent = 'authorize') {
       } else {
         const left = rail.cutoff - mins;
         controls.push((left <= 30 ? warn : pass)('cutoff', left <= 30 ? 'Cut-off approaching' : 'Inside cut-off',
-          `${left} minute(s) until ${rail.label} closes at ${hhmm(rail.cutoff)}.`));
+          `${plural(left, 'minute')} until ${rail.label} closes at ${hhmm(rail.cutoff)}.`));
       }
     } else {
       controls.push(pass('cutoff', 'No cut-off', `${rail.label} clears around the clock.`));
@@ -248,7 +253,7 @@ export function evaluate(p, actor, world, intent = 'authorize') {
     hoursBetween(new Date(q.updatedAt), world.now) < 24);
   if (dupe) {
     controls.push(warn('duplicate', 'Possible duplicate',
-      `${dupe.id} sent the same amount to the same beneficiary ${Math.round(hoursBetween(new Date(dupe.updatedAt), world.now))} hour(s) ago. If this is a genuine second payment a person should say so explicitly.`,
+      `${dupe.id} sent the same amount to the same beneficiary ${plural(Math.round(hoursBetween(new Date(dupe.updatedAt), world.now)), 'hour')} ago. If this is a genuine second payment a person should say so explicitly.`,
       [{ tool: 'get_payment', why: `Compare against ${dupe.id} before proceeding.` }]));
   }
 
@@ -265,14 +270,31 @@ export function evaluate(p, actor, world, intent = 'authorize') {
   const warned = controls.filter((c) => c.status === 'warn');
   const decision = blocked.length ? 'blocked' : warned.length ? 'needs_human' : 'allow';
 
-  return { decision, controls, needs: blocked.length ? blocked : warned };
+  // What a desk needs told first is what is wrong with the payment, not who
+  // happens to be asking. A sanctions match outranks a missing second signature.
+  const needs = (blocked.length ? blocked : warned)
+    .slice().sort((a, b) => (RANK[a.id] ?? 50) - (RANK[b.id] ?? 50));
+
+  return { decision, controls, needs };
 }
+
+const RANK = {
+  identity: 0, screening: 1, funding: 2, beneficiary: 3, rail: 4,
+  sod: 5, mandate_scope: 6, four_eyes: 7, authority: 8,
+  limit_single: 9, limit_daily: 10, duplicate: 11, dual_auth: 12,
+  cutoff: 13, evidence: 14,
+};
 
 /** Does an active mandate cover this payment? Returns null if no mandate at all. */
 export function mandateCovers(m, p, world) {
   if (!m || m.revokedAt) return null;
+  const who = (id) => world.nameOf?.(id) ?? id;
   const expired = new Date(m.expiresAt) <= world.now;
-  if (expired) return { ok: false, why: `The mandate granted by ${m.grantedBy} expired at ${new Date(m.expiresAt).toLocaleTimeString()}.` };
+  if (expired) return { ok: false, why: `The mandate granted by ${who(m.grantedBy)} expired at ${new Date(m.expiresAt).toLocaleTimeString()}.` };
+  // A mandate is denominated. Comparing its ceiling against another currency
+  // would be meaningless arithmetic on a money path, so it simply does not carry.
+  if (p.ccy !== m.ccy)
+    return { ok: false, why: `The mandate is denominated in ${m.ccy} and this payment is in ${p.ccy}. A mandate does not carry across currencies.` };
   if (p.amountMinor > m.perPaymentMinor)
     return { ok: false, why: `The mandate caps single payments at ${money(m.perPaymentMinor, m.ccy)}; this is ${money(p.amountMinor, p.ccy)}.` };
   const spent = m.spentMinor || 0;
@@ -286,7 +308,7 @@ export function mandateCovers(m, p, world) {
   const leftMs = new Date(m.expiresAt) - world.now;
   return {
     ok: true,
-    why: `Covered by the mandate ${m.grantedBy} granted at ${new Date(m.grantedAt).toLocaleTimeString()}: up to ${money(m.perPaymentMinor, m.ccy)} per payment, ${money(m.totalMinor - spent, m.ccy)} of budget left, ${Math.max(0, Math.round(leftMs / 60000))} minute(s) before it expires.`,
+    why: `Covered by the mandate ${who(m.grantedBy)} granted at ${new Date(m.grantedAt).toLocaleTimeString()}: up to ${money(m.perPaymentMinor, m.ccy)} per payment, ${money(m.totalMinor - spent, m.ccy)} of budget left, ${plural(Math.max(0, Math.round(leftMs / 60000)), 'minute')} before it expires.`,
   };
 }
 

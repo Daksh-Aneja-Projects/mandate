@@ -27,15 +27,12 @@ export const USERS = {
   'agent': { id: 'agent', name: 'Connected agent', role: 'agent', initials: 'AI', online: true },
 };
 
+/** Balances in minor units, written as <major>_<thousands>_<hundreds>_<cents>. */
 export const ACCOUNTS = [
-  { id: 'ACC-EUR-01', label: 'EUR Operating - Rabobank', ccy: 'EUR', availableMinor: 184_20_00 * 100 / 100 * 100, iban: 'NL91 RABO 0417 1643 00' },
-  { id: 'ACC-GBP-01', label: 'GBP Collections - Barclays', ccy: 'GBP', availableMinor: 61_40_000, iban: 'GB29 BARC 2003 1926 8191 55' },
-  { id: 'ACC-USD-01', label: 'USD Reserve - Citi', ccy: 'USD', availableMinor: 9_82_00_000, iban: 'US64 CITI 0390 0000 0329 3701' },
+  { id: 'ACC-EUR-01', label: 'EUR Operating - Rabobank', ccy: 'EUR', availableMinor: 1_842_000_00, iban: 'NL91 RABO 0417 1643 00' },
+  { id: 'ACC-GBP-01', label: 'GBP Collections - Barclays', ccy: 'GBP', availableMinor: 614_000_00, iban: 'GB29 BARC 2003 1926 8191 55' },
+  { id: 'ACC-USD-01', label: 'USD Reserve - Citi', ccy: 'USD', availableMinor: 9_820_000_00, iban: 'US64 CITI 0390 0000 0329 3701' },
 ];
-// available balances, stated explicitly in minor units to avoid arithmetic drift
-ACCOUNTS[0].availableMinor = 1_842_000_00; // EUR 1,842,000.00
-ACCOUNTS[1].availableMinor = 614_000_00; // GBP 614,000.00
-ACCOUNTS[2].availableMinor = 9_820_000_00; // USD 9,820,000.00
 
 export const BENEFICIARIES = [
   { id: 'BEN-01', name: 'Northwind GmbH', country: 'DE', iban: 'DE89 3704 0044 0532 0130 00', status: 'verified', screening: 'clear', verifiedOn: on(daysAgo(412)), priorPayments: 63, addedDaysAgo: 412, category: 'Raw materials' },
