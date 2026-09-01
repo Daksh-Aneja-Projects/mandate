@@ -763,11 +763,20 @@ export async function syncTools() {
   return { supported: true, count: tools.length, names: tools.map((t) => t.name) };
 }
 
-/** Coalesce bursts of state changes into one re-registration. */
+/**
+ * Coalesce bursts of state changes into one re-registration.
+ *
+ * Deliberately a macrotask, not a microtask. Re-registering aborts the current
+ * surface, and a tool whose execute is still in flight is abandoned with it -
+ * so granting a mandate on a microtask killed the very propose_mandate call
+ * that asked for it, and the agent waited forever for an answer that was never
+ * coming. A setTimeout lets every pending execute drain to its return value
+ * first, since those continuations are microtasks.
+ */
 export function scheduleSync() {
   if (queued) return;
   queued = true;
-  queueMicrotask(async () => { queued = false; await syncTools(); });
+  setTimeout(async () => { queued = false; await syncTools(); }, 0);
 }
 
 export const toolNames = () => buildTools().map((t) => ({ name: t.name, readOnly: !!t.annotations?.readOnlyHint }));

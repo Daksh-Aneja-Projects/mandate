@@ -456,8 +456,11 @@ function wireCard(req) {
         reason: req.proposal.reason, grantedBy: S.state.me,
         expiresAt: new Date(Date.now() + mins * 60000).toISOString(),
       });
+      // Answer the waiting agent first, then re-register. The other order
+      // tears down the tool whose call is still open.
+      req.resolve({ ok: true, granted, by: S.state.me });
       scheduleSync();
-      return req.resolve({ ok: true, granted, by: S.state.me });
+      return;
     }
 
     const noteEl = document.getElementById(`reply-${req.id}`);
