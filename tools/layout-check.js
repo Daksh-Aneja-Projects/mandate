@@ -93,6 +93,18 @@ try {
     const n = ++id; waiting.set(n, res); ws.send(JSON.stringify({ id: n, method, params }));
   });
 
+  // Wait for the desk to actually paint before measuring anything. On a cold
+  // edge the first viewport can be probed before the module has run, which
+  // reads as a layout failure when it is only a slow first byte.
+  for (let i = 0; i < 40; i++) {
+    const r = await send('Runtime.evaluate', {
+      expression: `document.fonts.ready.then(() => document.querySelectorAll('.pay').length)`,
+      awaitPromise: true, returnByValue: true,
+    });
+    if ((r.result?.result?.value || 0) > 0) break;
+    await sleep(300);
+  }
+
   console.log(`\nLayout check - ${URL_}\n`);
   for (const [w, h, label] of VIEWPORTS) {
     await send('Emulation.setDeviceMetricsOverride', { width: w, height: h, deviceScaleFactor: 1, mobile: w < 768 });
