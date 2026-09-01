@@ -36,16 +36,19 @@ const deskCheck = (p) => S.check(p, S.deskActor(), 'authorize');
  * view, so a bureau that comes back is not reported as down forever.
  */
 let checking = false;
-async function checkBureau() {
+async function checkBureau(patient = true) {
   if (checking || !('modelContext' in document)) return;
   checking = true;
   try {
-    for (let i = 0; i < 8; i++) {
-      if (await bureauReachable()) { bureau = true; render(); return; }
-      await new Promise((r) => setTimeout(r, 500));
+    const tries = patient ? 8 : 1;
+    for (let i = 0; i < tries; i++) {
+      if (await bureauReachable()) {
+        if (bureau !== true) { bureau = true; render(); }
+        return;
+      }
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, 500));
     }
-    bureau = false;
-    render();
+    if (bureau !== false) { bureau = false; render(); }
   } finally { checking = false; }
 }
 
@@ -80,7 +83,11 @@ $('views').addEventListener('click', (e) => {
   }
   for (const v of ['queue', 'authority', 'trail']) $(`view-${v}`).classList.toggle('is-hidden', v !== view);
   $(`view-${view}`).focus({ preventScroll: true });
-  if (view === 'authority' && bureau !== true) checkBureau();
+  // Re-check every time, not only when it was already down. A partner that has
+  // gone away must not keep being reported as connected: a stale "available"
+  // is worse than a slow "not available".  Patient poll only while the answer
+  // has never been established; after that a single probe reflects reality.
+  if (view === 'authority') checkBureau(bureau === null);
   render();
 });
 
