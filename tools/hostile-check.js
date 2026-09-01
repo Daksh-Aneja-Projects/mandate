@@ -96,13 +96,31 @@ try {
   console.log(`\nHostile conditions - ${URL_}`);
   console.log('Proxying an embedded in-app browser. This is NOT ChatGPT\'s browser.\n');
 
-  // --- 1. the partner origin is unreachable ------------------------------
-  console.log('1. Partner origin blocked at the network layer');
-  await load(['*mandate-screening.vercel.app*']);
-  const bureauGone = await evaluate(`
-    import('/src/tools.js').then(T => T.bureauReachable()).then(r => r).catch(() => 'threw')`);
+  // --- 1. the partner origin goes away -----------------------------------
+  //
+  // Network.setBlockedURLs is not a reliable way to do this: the partner runs
+  // in its own process, so the block does not always reach it and the scenario
+  // silently tests nothing. Tearing the frame out of the DOM is unambiguous.
+  // The positive control first, so a "not reachable" result means something.
+  console.log('1. Partner origin goes away mid-session');
+  await load([]);
+  let reachable = false;
+  for (let i = 0; i < 25 && !reachable; i++) {
+    reachable = await evaluate(`import('/src/tools.js').then(T => T.bureauReachable())`).catch(() => false);
+    if (!reachable) await sleep(400);
+  }
+  record('control: the bureau is reachable to begin with', reachable === true, `bureauReachable() = ${reachable}`);
+
+  await evaluate(`document.getElementById('bureau').remove()`);
+  let bureauGone = 'still reachable';
+  for (let i = 0; i < 25; i++) {
+    const r = await evaluate(`import('/src/tools.js').then(T => T.bureauReachable()).catch(() => 'threw')`);
+    if (r === false) { bureauGone = false; break; }
+    if (r === 'threw') { bureauGone = 'threw'; break; }
+    await sleep(400);
+  }
   record('the desk still loads without the bureau', await evaluate(`document.querySelectorAll('.pay').length`) > 0);
-  record('federation reports unreachable rather than throwing', bureauGone === false, `bureauReachable() = ${bureauGone}`);
+  record('losing the partner reports unreachable rather than throwing', bureauGone === false, `bureauReachable() = ${bureauGone}`);
 
   const degraded = await evaluate(`
     document.modelContext.getTools()

@@ -31,8 +31,12 @@ const BUREAU = 'https://mandate-screening.vercel.app';
 
 async function bureauTool() {
   try {
+    // fromOrigins is additive, not a filter: this returns our own tools as well
+    // as the partner's. So match on origin, not on the name alone - another
+    // origin naming a tool the same thing must never be mistaken for the
+    // bureau. RegisteredTool carries `origin` for exactly this.
     const tools = await document.modelContext.getTools({ fromOrigins: [BUREAU] });
-    return tools.find((t) => t.name === 'recheck_beneficiary_screening') || null;
+    return tools.find((t) => t.name === 'recheck_beneficiary_screening' && t.origin === BUREAU) || null;
   } catch {
     return null; // the bureau is simply not reachable; say so, never guess
   }

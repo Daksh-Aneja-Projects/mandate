@@ -161,13 +161,17 @@ Chrome's guidance says to accept raw user input rather than making the agent do
 arithmetic, so every amount is taken as written (`"4820.00"`) and converted to
 integer minor units in one strict parser. No float ever touches an amount.
 
-> **Two notes on the spec, both found by testing rather than reading.**
-> The explainer shows `executeTool` taking an arguments *object*; Chrome's
-> imperative API docs say a JSON *string*. Against Chrome 152 it is a JSON
-> string — **and it returns one too**, which the explainer does not say at all.
-> A cross-origin call came back as a serialised string where `result.content`
-> was expected, so `readToolResult()` in `src/tools.js` handles both shapes and
-> `tools/verify-webmcp.js` reports which the browser actually took.
+> **Three notes on the spec, all found by testing rather than reading.**
+>
+> 1. The explainer shows `executeTool` taking an arguments *object*; Chrome's
+>    imperative API docs say a JSON *string*. Against Chrome 152 it is a JSON
+>    string.
+> 2. **It returns one too**, which the explainer does not say at all. A
+>    cross-origin call came back as a serialised string where `result.content`
+>    was expected, so `readToolResult()` in `src/tools.js` handles both shapes.
+> 3. **`getTools({ fromOrigins })` is additive, not a filter.** It returns your
+>    own tools *plus* the named origins', so matching a partner's tool by name
+>    alone is unsafe. `RegisteredTool` carries an `origin`; match on that.
 
 ## The tool surface
 
