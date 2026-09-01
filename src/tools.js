@@ -117,8 +117,14 @@ function buildTools() {
   });
 
   T({
-    name: 'get_authority',
-    description: 'Explains exactly what you as an agent are and are not permitted to do on this desk at this moment, and what would have to change for a refused action to become permitted. Call this when something is refused and you want to know why.',
+    name: 'explain_my_limits',
+    // Deliberately worded to stay out of propose_mandate's way. A local model
+    // kept choosing this one when asked to *request* authority, which would
+    // stall the whole flow. The cause was this description naming the other
+    // tool: "to ask a person to grant you more, call propose_mandate" put the
+    // requester's own trigger words into the reader's selection signal. That
+    // pointer belongs in the runtime output, not here.
+    description: 'Read-only report of the limits you are already operating under on this desk, and why they apply. Use it to understand a refusal you have received. It reports only and changes nothing.',
     annotations: { readOnlyHint: true },
     inputSchema: { type: 'object', properties: {} },
     execute: async () => ok(
@@ -411,7 +417,10 @@ function buildTools() {
 
   T({
     name: 'request_authorization',
-    description: 'Ask a named person at the desk to authorise a payment. This does not return until they decide, so you will get their actual answer, not an acknowledgement. Use this for anything you have no authority to do yourself.',
+    // Scoped to one payment on purpose. Without "one specific payment,
+    // identified by id" this tool absorbs requests for standing authority over
+    // a whole class of payments, which is a different tool entirely.
+    description: 'Route one specific payment, identified by its id, to a person at the desk for approval. Covers that single payment and nothing else. This does not return until they decide, so you get their actual answer rather than an acknowledgement.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -481,7 +490,7 @@ function buildTools() {
 
   T({
     name: 'propose_mandate',
-    description: 'Ask a person for bounded, expiring authority to release payments yourself, so you stop having to interrupt them for every routine one. You propose the scope; they can tighten any part of it before granting, or refuse. This does not return until they decide. If granted, new tools become available to you immediately.',
+    description: 'Request permission from a person. Use this whenever you need authority you do not have: after being refused for lack of authority, or when someone tells you to ask them for permission to act on your own. You propose the limits - the most per payment, a total budget, how long it lasts, which rails - and they can tighten any part before agreeing, or refuse outright. This does not return until a person decides. If they agree, new tools become available to you immediately.',
     inputSchema: {
       type: 'object',
       properties: {
@@ -502,7 +511,7 @@ function buildTools() {
       if (!(a.minutes > 0)) return fault('Ask for a positive number of minutes.');
       if (ms.active) return refuse(
         `A mandate is already in force until ${new Date(ms.mandate.expiresAt).toLocaleTimeString()}, with ${money(ms.budgetLeftMinor, ms.mandate.ccy)} left. Work within it, or hand it back before asking for a different one.`,
-        [{ tool: 'get_authority', why: 'See exactly what the current mandate covers.' },
+        [{ tool: 'explain_my_limits', why: 'See exactly what the current mandate covers.' },
          { tool: 'revoke_mandate', why: 'Hand back the current mandate first.' }]);
 
       const granter = S.me();

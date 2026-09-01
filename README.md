@@ -137,7 +137,7 @@ Nineteen tools in four tiers. The last tier only exists while a person says it
 does.
 
 **Read — free rein** (`readOnlyHint: true`)
-`get_desk_status` · `get_authority` · `search_payments` · `get_payment` ·
+`get_desk_status` · `explain_my_limits` · `search_payments` · `get_payment` ·
 `explain_hold` · `search_beneficiaries` · `get_exposure` · `get_audit_trail`
 
 **Prepare — moves no money**
