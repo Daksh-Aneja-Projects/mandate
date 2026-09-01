@@ -110,6 +110,10 @@ const granted = await until(`window.__mandate`);
 step('beat 4: clicking grant resolves the call the agent is waiting on', !!granted && /granted the mandate/i.test(granted));
 step('beat 4: the agent is told the scope was tightened', /tightened/i.test(granted || ''));
 
+// A real agent re-reads on toolchange rather than racing the swap, so wait for
+// the surface to settle - but assert it settles quickly, because an agent that
+// looks too early must not be handed a half-registered desk.
+await until(`document.modelContext.getTools().then(ts => ts.length >= 18)`, true, 15);
 const withMandate = await ev(`document.modelContext.getTools().then(ts => ts.map(t => t.name))`);
 step('beat 4: release_under_mandate now exists', withMandate.includes('release_under_mandate'), `${withMandate.length} tools`);
 

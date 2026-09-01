@@ -758,8 +758,13 @@ export async function syncTools() {
         return fault(`Something went wrong inside ${t.name} and nothing was changed: ${e.message}`);
       }
     };
-    await document.modelContext.registerTool(t, { signal: controller.signal });
   }
+
+  // One batch, not a loop of awaits. Registering sequentially left the surface
+  // partially populated for as many turns as there are tools, so an agent that
+  // read the list during a swap saw an incoherent subset of it - three tools
+  // out of eighteen, moments after a mandate was granted.
+  await Promise.all(tools.map((t) => document.modelContext.registerTool(t, { signal: controller.signal })));
   return { supported: true, count: tools.length, names: tools.map((t) => t.name) };
 }
 
