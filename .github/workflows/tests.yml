@@ -1,0 +1,27 @@
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only: this workflow only checks out code and runs the suite.
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: control engine and tool surface
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # There are no dependencies to install - the desk ships zero runtime
+      # packages - so the suite runs straight off the checkout.
+      - name: Run tests
+        run: node --test

@@ -121,7 +121,7 @@ test('granting a mandate changes the tool surface itself', async () => {
       perPaymentMinor: 500000, totalMinor: 2000000, ccy: 'EUR',
       rails: req.proposal.rails, knownBeneficiariesOnly: true, minutes: 30,
       reason: req.proposal.reason, grantedBy: 'p.raghavan',
-      expiresAt: new Date(Date.now() + 30 * 60000).toISOString(),
+      expiresAt: new Date(S.deskNow().getTime() + 30 * 60000).toISOString(),
     });
     return { ok: true, granted, by: 'p.raghavan' };
   });
@@ -216,7 +216,7 @@ test('the agent cannot approve a payment it prepared, even under a mandate', asy
   S.grantMandate({
     perPaymentMinor: 500000, totalMinor: 2000000, ccy: 'EUR', rails: ['sepa_ct'],
     knownBeneficiariesOnly: true, minutes: 30, reason: 'test',
-    grantedBy: 'p.raghavan', expiresAt: new Date(Date.now() + 30 * 60000).toISOString(),
+    grantedBy: 'p.raghavan', expiresAt: new Date(S.deskNow().getTime() + 30 * 60000).toISOString(),
   });
   await syncTools();
 

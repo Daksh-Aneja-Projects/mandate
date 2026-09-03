@@ -2,6 +2,9 @@
 
 **Scoped, supervised, revocable authority for AI agents — built on [WebMCP](https://github.com/webmachinelearning/webmcp).**
 
+[![tests](https://github.com/Daksh-Aneja-Projects/mandate/actions/workflows/tests.yml/badge.svg)](https://github.com/Daksh-Aneja-Projects/mandate/actions/workflows/tests.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Live: https://mandate-webmcp.vercel.app**
 
 Open it in ChatGPT's in-app browser, or in Chromium 146+ with
